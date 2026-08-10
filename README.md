@@ -13,19 +13,7 @@ It runs out of the box: just double-click `index.html` and start browsing logs.
 - Filter by one or two message keywords
 - Expand any entry to inspect the raw JSON payload
 - Works entirely in the browser
-- No build step, no installation, no backend
-
-## How to use
-
-1. Double-click `index.html` in the `LogFrog` folder.
-2. Choose a `.json`, `.log`, `.txt`, or `.zip` file.
-3. Apply filters as needed.
-
-## File structure
-
-- `index.html` - app shell and UI
-- `styles.css` - layout and visual styling
-- `app.js` - file parsing, filtering, and rendering logic
+- No build step, no installation, no backend, no problems
 
 ## Notes
 
