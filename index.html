@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LogFrog</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231d4ed8'/%3E%3Ccircle cx='32' cy='36' r='15' fill='%2322c55e'/%3E%3Ccircle cx='23' cy='22' r='6' fill='%2322c55e'/%3E%3Ccircle cx='41' cy='22' r='6' fill='%2322c55e'/%3E%3Ccircle cx='23' cy='22' r='2.4' fill='%230f172a'/%3E%3Ccircle cx='41' cy='22' r='2.4' fill='%230f172a'/%3E%3Cpath d='M25 38c2.8 3.4 11.2 3.4 14 0' fill='none' stroke='%230f172a' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="overlay" aria-hidden="true">
+        <div class="loaderCard" role="status" aria-live="polite">
+            <div id="loader"></div>
+            <div class="loaderText">Processing log file...</div>
+        </div>
+    </div>
+
+    <main class="appShell">
+        <header class="hero">
+            <div class="heroBrand">
+                <div class="frogMark" aria-hidden="true">
+                    <svg viewBox="0 0 64 64" role="img" focusable="false">
+                        <circle cx="32" cy="36" r="15"></circle>
+                        <circle cx="23" cy="22" r="6"></circle>
+                        <circle cx="41" cy="22" r="6"></circle>
+                        <circle cx="23" cy="22" r="2.4"></circle>
+                        <circle cx="41" cy="22" r="2.4"></circle>
+                        <path d="M25 38c2.8 3.4 11.2 3.4 14 0"></path>
+                    </svg>
+                </div>
+                <p class="eyebrow">LogFrog</p>
+                <h1>Inspect logs without the noise.</h1>
+                <p class="heroText">Load JSON, LOG, TXT, or ZIP files and filter entries by level and message keywords.</p>
+            </div>
+        </header>
+
+        <section class="panel toolbar" aria-label="File input and filters">
+            <div class="field">
+                <label for="fileInput">Log file</label>
+                <input type="file" id="fileInput" accept=".json,.log,.txt,.zip">
+            </div>
+
+            <div class="field field--compact">
+                <label for="filterLevel">Level</label>
+                <select id="filterLevel">
+                    <option value="">All levels</option>
+                    <option value="TRACE">TRACE</option>
+                    <option value="DEBUG">DEBUG</option>
+                    <option value="INFO">INFO</option>
+                    <option value="WARN">WARN</option>
+                    <option value="ERROR">ERROR</option>
+                    <option value="FATAL">FATAL</option>
+                </select>
+            </div>
+
+            <div class="field field--grow">
+                <label for="filterMessage">Message contains</label>
+                <input type="text" id="filterMessage" placeholder="First keyword...">
+            </div>
+
+            <div class="field field--grow">
+                <label for="filterMessage2">Also contains</label>
+                <input type="text" id="filterMessage2" placeholder="Second keyword...">
+            </div>
+
+            <button type="button" id="filterButton" disabled>Show</button>
+        </section>
+
+        <section id="tableContainer" class="panel results">
+            <div class="emptyState">
+                Choose a log or ZIP file to get started.
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
