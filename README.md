@@ -1,6 +1,7 @@
 # 🐸 LogFrog
 
 What do frogs know about logs...
+
 LogFrog is a lightweight browser-based log viewer for JSON, LOG, TXT, and ZIP files.
 
 It was primarily built for NLog output and its level tags such as `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, and `FATAL`.
