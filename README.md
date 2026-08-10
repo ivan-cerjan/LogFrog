@@ -1,4 +1,4 @@
-# LogFrog
+# 🐸 LogFrog
 
 What do frogs know about logs...
 LogFrog is a lightweight browser-based log viewer for JSON, LOG, TXT, and ZIP files.
