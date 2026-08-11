@@ -7,44 +7,29 @@ const elements = {
     filterMessage: document.getElementById("filterMessage"),
     filterMessage2: document.getElementById("filterMessage2"),
     filterButton: document.getElementById("filterButton"),
-    tableContainer: document.getElementById("tableContainer"),
-    overlay: document.getElementById("overlay")
+    tableContainer: document.getElementById("tableContainer")
 };
 
-elements.fileInput.addEventListener("change", handleFileChange);
-elements.filterLevel.addEventListener("change", filterLogs);
-elements.filterButton.addEventListener("click", filterLogs);
-
+elements.fileInput.addEventListener("change", onFileChange);
+elements.filterButton.addEventListener("click", search);
 document.querySelectorAll("#filterMessage, #filterMessage2").forEach(function (input) {
     input.addEventListener("keydown", function (event) {
-        if (event.key === "Enter") {
-            filterLogs();
-        }
+        if (event.key === "Enter") search();
     });
 });
 
-async function handleFileChange(event) {
+async function onFileChange(event) {
     const file = event.target.files[0];
-
-    if (!file) {
-        return;
-    }
+    if (!file) return;
 
     selectedFileName = file.name;
     wholeJson = [];
     showLoader();
 
     try {
-        const extension = getFileExtension(file.name);
-
-        if (extension === "zip") {
-            await readFromZip(file);
-        } else {
-            await readFromFile(file);
-        }
-
+        wholeJson = await loadFile(file);
         elements.filterButton.disabled = false;
-        createTable(wholeJson);
+        await render(wholeJson);
     } catch (error) {
         console.error(error);
         elements.tableContainer.innerHTML =
@@ -56,106 +41,65 @@ async function handleFileChange(event) {
     }
 }
 
-function getFileExtension(fileName) {
-    const lastDotIndex = fileName.lastIndexOf(".");
-    if (lastDotIndex === -1) {
-        return "";
-    }
-    return fileName.slice(lastDotIndex + 1).toLowerCase();
-}
+async function loadFile(file) {
+    if (file.name.toLowerCase().endsWith(".zip")) {
+        const zip = await JSZip.loadAsync(file);
+        const out = [];
 
-async function readFromFile(file) {
-    const contents = await file.text();
-    wholeJson.push(...parseLogContents(contents));
-}
-
-async function readFromZip(file) {
-    const zip = await JSZip.loadAsync(file);
-    const files = [];
-
-    zip.forEach(function (_relativePath, zipEntry) {
-        if (!zipEntry.dir) {
-            files.push(zipEntry);
-        }
-    });
-
-    if (files.length === 0) {
-        throw new Error("ZIP file does not contain any files.");
-    }
-
-    for (const zipEntry of files) {
-        const extension = getFileExtension(zipEntry.name);
-
-        if (extension !== "json" && extension !== "log" && extension !== "txt") {
-            continue;
+        for (const entry of Object.values(zip.files)) {
+            if (entry.dir || !/\.(json|log|txt)$/i.test(entry.name)) continue;
+            out.push(...parse(await entry.async("string")));
         }
 
-        const contents = await zipEntry.async("string");
-        wholeJson.push(...parseLogContents(contents));
+        if (!out.length) {
+            throw new Error("ZIP file does not contain readable JSON, LOG, or TXT entries.");
+        }
+
+        return out;
     }
 
-    if (wholeJson.length === 0) {
-        throw new Error("ZIP file does not contain readable JSON, LOG, or TXT entries.");
-    }
+    return parse(await file.text());
 }
 
-function parseLogContents(contents) {
-    const trimmedContents = contents.trim();
-
-    if (!trimmedContents) {
-        return [];
-    }
+function parse(text) {
+    const trimmed = text.trim();
+    if (!trimmed) return [];
 
     try {
-        const parsedJson = JSON.parse(trimmedContents);
-        return Array.isArray(parsedJson) ? parsedJson : [parsedJson];
+        return [].concat(JSON.parse(trimmed)).map(function (item) {
+            item._msg = getMessage(item).toLowerCase();
+            item._lvl = getLevel(item);
+            return item;
+        });
     } catch {
-        const lines = trimmedContents
-            .split(/\r?\n/)
-            .map(function (line) {
-                return line.trim();
-            })
-            .filter(Boolean);
-
-        const parsedItems = [];
-
-        lines.forEach(function (line, index) {
+        return trimmed.split(/\r?\n/).filter(Boolean).map(function (line, index) {
             try {
-                parsedItems.push(JSON.parse(line));
+                const item = JSON.parse(line);
+                item._msg = getMessage(item).toLowerCase();
+                item._lvl = getLevel(item);
+                return item;
             } catch (error) {
                 throw new Error("Invalid JSON entry on line " + (index + 1) + ": " + error.message);
             }
         });
-
-        return parsedItems;
     }
 }
 
-function filterLogs() {
-    if (!Array.isArray(wholeJson) || wholeJson.length === 0) {
-        return;
-    }
-
+function search() {
+    if (!wholeJson.length) return;
     showLoader();
 
     setTimeout(function () {
         try {
-            const firstMessageFilter = elements.filterMessage.value.trim().toLowerCase();
-            const secondMessageFilter = elements.filterMessage2.value.trim().toLowerCase();
-            const levelFilter = elements.filterLevel.value.trim().toUpperCase();
+            const q1 = elements.filterMessage.value.trim().toLowerCase();
+            const q2 = elements.filterMessage2.value.trim().toLowerCase();
+            const lvl = elements.filterLevel.value.trim().toUpperCase();
 
-            const filteredJson = wholeJson.filter(function (item) {
-                const message = getItemMessage(item).toLowerCase();
-                const level = getItemLevel(item);
-
-                return (
-                    (firstMessageFilter === "" || message.includes(firstMessageFilter)) &&
-                    (secondMessageFilter === "" || message.includes(secondMessageFilter)) &&
-                    (levelFilter === "" || level === levelFilter)
-                );
-            });
-
-            createTable(filteredJson);
+            render(wholeJson.filter(function (item) {
+                return (!q1 || item._msg.includes(q1)) &&
+                    (!q2 || item._msg.includes(q2)) &&
+                    (!lvl || item._lvl === lvl);
+            }));
         } catch (error) {
             alert(error.message || String(error));
         } finally {
@@ -164,120 +108,44 @@ function filterLogs() {
     }, 0);
 }
 
-function createTable(filteredJson) {
-    let innerHtml =
+async function render(items) {
+    const base =
         '<div class="resultSummary">' +
-        "<div>Entries found: <strong>" + filteredJson.length + "</strong></div>" +
+        "<div>Entries found: <strong>" + items.length + "</strong></div>" +
         '<div class="fileName" title="' + escapeHtml(selectedFileName) + '">' +
         escapeHtml(selectedFileName) +
         "</div>" +
         "</div>";
 
-    if (filteredJson.length === 0) {
-        elements.tableContainer.innerHTML =
-            innerHtml + '<div class="emptyState">No entries match the current filters.</div>';
+    if (!items.length) {
+        elements.tableContainer.innerHTML = base + '<div class="emptyState">No entries match the current filters.</div>';
         return;
     }
 
-    filteredJson.forEach(function (item) {
-        const level = getItemLevel(item);
-        const message = getItemMessage(item);
-        const loggedOn = getItemLoggedOn(item);
-        const jsonText = JSON.stringify(item, null, 2);
+    elements.tableContainer.innerHTML = base;
 
-        innerHtml +=
+    let chunk = "";
+    for (let i = 0; i < items.length; i += 1) {
+        const item = items[i];
+        chunk +=
             '<div class="itemContainer jsonHidden">' +
-                '<div class="summary ' + escapeHtml(level) + '" onclick="toggleItem(this)">' +
-                    '<div class="time">' + escapeHtml(loggedOn) + "</div>" +
-                    '<div class="level">' + escapeHtml(level) + "</div>" +
-                    '<div class="message" title="' + escapeHtml(message) + '">' +
-                        escapeHtml(summarizeText(message, 250)) +
+                '<div class="summary ' + escapeHtml(getLevel(item)) + '" onclick="toggleItem(this)">' +
+                    '<div class="time">' + escapeHtml(getLoggedOn(item)) + "</div>" +
+                    '<div class="level">' + escapeHtml(getLevel(item)) + "</div>" +
+                    '<div class="message" title="' + escapeHtml(getMessage(item)) + '">' +
+                        escapeHtml(truncate(getMessage(item), 250)) +
                     "</div>" +
                     '<div class="expandIcon">›</div>' +
                 "</div>" +
-                '<pre class="json">' + escapeHtml(jsonText) + "</pre>" +
+                '<pre class="json">' + escapeHtml(JSON.stringify(item, null, 2)) + "</pre>" +
             "</div>";
-    });
 
-    elements.tableContainer.innerHTML = innerHtml;
-}
-
-function getItemMessage(item) {
-    if (item === null || item === undefined) {
-        return "";
+        if ((i + 1) % BATCH_SIZE === 0) {
+            elements.tableContainer.insertAdjacentHTML("beforeend", chunk);
+            chunk = "";
+            await frame();
+        }
     }
 
-    if (item.message !== null && item.message !== undefined) {
-        return String(item.message);
-    }
-
-    if (item.Message !== null && item.Message !== undefined) {
-        return String(item.Message);
-    }
-
-    return "";
-}
-
-function getItemLevel(item) {
-    if (item === null || item === undefined) {
-        return "UNKNOWN";
-    }
-
-    return String(item.level ?? item.Level ?? "UNKNOWN").toUpperCase();
-}
-
-function getItemLoggedOn(item) {
-    if (item === null || item === undefined) {
-        return "";
-    }
-
-    const loggedOn =
-        item.loggedOn ??
-        item.LoggedOn ??
-        item.timestamp ??
-        item.Timestamp ??
-        item.date ??
-        item.Date ??
-        "";
-
-    const text = String(loggedOn);
-    return text.length >= 19 ? text.substring(0, 19).replace("T", " ") : text;
-}
-
-function toggleItem(target) {
-    target.parentElement.classList.toggle("jsonHidden");
-}
-
-function summarizeText(text, maxLength) {
-    if (text.length <= maxLength) {
-        return text;
-    }
-
-    return text.substring(0, maxLength) + "...";
-}
-
-function escapeHtml(value) {
-    const html = String(value ?? "");
-    const map = {
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#039;",
-        "/": "&#x2F;",
-        "`": "&#x60;",
-        "=": "&#x3D;"
-    };
-
-    return html.replace(/[&<>"'/`=]/g, function (character) {
-        return map[character];
-    });
-}
-
-function showLoader() {
-    elements.overlay.style.display = "flex";
-}
-
-function hideLoader() {
-    elements.overlay.style.display = "none";
+    if (chunk) elements.tableContainer.insertAdjacentHTML("beforeend", chunk);
 }
