@@ -1,4 +1,4 @@
-# LogFrog (deprecated project)
+# LogFrog (deprecated project, not used)
 
 What do frogs know about logs... nothing, but at least they make 'em look nice.
 
