@@ -1,4 +1,4 @@
-# 🐸 LogFrog
+# LogFrog (deprecated project)
 
 What do frogs know about logs... nothing, but at least they make 'em look nice.
 
